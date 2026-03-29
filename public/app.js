@@ -4,7 +4,8 @@ document.addEventListener('DOMContentLoaded', () => {
         currentStep: 1,
         chatHistory: [],
         gemInstruction: '',
-        notebookData: null
+        notebookData: null,
+        uploadedDocs: [] // アップロード資料（全文＋NotebookLM素材）
     };
 
     // Elements
@@ -42,12 +43,38 @@ document.addEventListener('DOMContentLoaded', () => {
         notebookNames: document.getElementById('notebook-names'),
         tableBody: document.getElementById('table-body'),
         copyAllTableBtn: document.getElementById('copy-all-table-btn'),
-        tipsContainer: document.getElementById('tips-container')
+        tipsContainer: document.getElementById('tips-container'),
+
+        // Upload (共通UI)
+        uploadTriggerBtn: document.getElementById('upload-trigger-btn'),
+        fileInput: document.getElementById('file-input')
     };
+
+    // ====== Conversation History: Load from localStorage ======
+    function loadChatHistory() {
+        const saved = localStorage.getItem('gem_maker_chat_history');
+        if (!saved) return;
+
+        try {
+            const history = JSON.parse(saved);
+            state.chatHistory = history;
+
+            history.forEach(msg => {
+                const role = msg.role === 'assistant' ? 'AI' : 'user';
+                addMessage(role, msg.content, true); // silent mode
+            });
+        } catch (e) {
+            console.error('履歴の読み込みに失敗:', e);
+        }
+    }
 
     // Initialize
     goToStep(1);
-    addMessage('AI', 'こんにちは！今日はどんな業務を楽にしたいですか？まずは、一番「面倒だな」「時間がかかるな」と感じている仕事を気軽に教えてください 😊');
+    loadChatHistory();
+
+    if (state.chatHistory.length === 0) {
+        addMessage('AI', 'こんにちは！今日はどんな業務を楽にしたいですか？まずは、一番「面倒だな」「時間がかかるな」と感じている仕事を気軽に教えてください 😊');
+    }
 
     // Navigation
     elements.stepNavItems.forEach(item => {
@@ -72,27 +99,41 @@ document.addEventListener('DOMContentLoaded', () => {
             section.classList.remove('active');
         });
         document.getElementById(`step${step}`).classList.add('active');
+
+        // STEP4 に入るとき、アップロード済みNotebookデータがあればそれを表示
+        if (step === 4 && state.notebookData) {
+            renderNotebookData();
+            elements.notebookLoading.classList.add('hidden');
+            elements.notebookResult.classList.remove('hidden');
+        }
     }
 
     // ========== STEP 1: Chat ==========
-    function addMessage(role, text) {
-        const msgDiv = document.createElement('div');
-        msgDiv.className = `message ${role === 'AI' ? 'ai' : 'user'}`;
-        
-        let displayHtml = text;
-        const completionFlag = '【ヒアリング完了】';
-        if (text.includes(completionFlag)) {
-            displayHtml = text.replace(completionFlag, '').trim();
-            handleCompletion();
+    function addMessage(role, text, silent = false) {
+        if (!silent) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${role === 'AI' ? 'ai' : 'user'}`;
+            
+            let displayHtml = text;
+            const completionFlag = '【ヒアリング完了】';
+            if (text.includes(completionFlag)) {
+                displayHtml = text.replace(completionFlag, '').trim();
+                handleCompletion();
+            }
+            
+            const icon = role === 'AI' ? '🤖 ' : '👤 ';
+            msgDiv.innerHTML = `<span class="message-icon">${icon}</span>${displayHtml}`;
+            
+            elements.chatMessages.appendChild(msgDiv);
+            elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
         }
-        
-        const icon = role === 'AI' ? '🤖 ' : '👤 ';
-        msgDiv.innerHTML = `<span class="message-icon">${icon}</span>${displayHtml}`;
-        
-        elements.chatMessages.appendChild(msgDiv);
-        elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
 
-        state.chatHistory.push({ role: role === 'AI' ? 'assistant' : 'user', content: text });
+        state.chatHistory.push({ 
+            role: role === 'AI' ? 'assistant' : 'user', 
+            content: text 
+        });
+
+        localStorage.setItem('gem_maker_chat_history', JSON.stringify(state.chatHistory));
     }
 
     function handleCompletion() {
@@ -227,7 +268,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     elements.goStep4Btn.addEventListener('click', () => {
         goToStep(4);
-        generateNotebookData();
+        // すでにアップロード由来の notebookData があればそれを使う
+        if (!state.notebookData) {
+            generateNotebookData();
+        }
     });
 
     // ========== STEP 4: NotebookLM ==========
@@ -243,7 +287,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             const data = await response.json();
             
-            // "notebook_names"が存在するかで正しくJSON解釈できたか判定
             if (data.notebook_names) {
                 state.notebookData = data;
                 renderNotebookData();
@@ -260,6 +303,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderNotebookData() {
+        if (!state.notebookData) return;
+
         // Names
         elements.notebookNames.innerHTML = '';
         state.notebookData.notebook_names.forEach(name => {
@@ -301,7 +346,6 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.tipsContainer.appendChild(div);
         });
 
-        // Attach copy listeners
         document.querySelectorAll('.copy-name-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 copyToClipboard(e.target.dataset.name, e.target, '✅', '📋 コピー');
@@ -324,5 +368,63 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         copyToClipboard(dumpText, elements.copyAllTableBtn, '✅ 全件コピー完了', '📋 全件コピー');
+    });
+
+    // ========== 共通：📎 アップロード処理 ==========
+    elements.uploadTriggerBtn.addEventListener('click', () => {
+        elements.fileInput.value = '';
+        elements.fileInput.click();
+    });
+
+    elements.fileInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // 軽いフィードバック
+        addMessage('AI', `📎 「${file.name}」を受け取りました。内容を解析しています…`);
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const response = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                addMessage('AI', '資料の解析中にエラーが発生しました。');
+                return;
+            }
+
+            const data = await response.json();
+            const { extractedText, notebookData } = data;
+
+            // C案：全文は内部保持、チャットには要約だけ
+            state.uploadedDocs.push({
+                name: file.name,
+                fullText: extractedText,
+                notebookData
+            });
+
+            // NotebookLM用データとしても保持（STEP4で使う）
+            if (notebookData) {
+                state.notebookData = notebookData;
+            }
+
+            // チャットには要約だけ表示（NotebookLM側の summary を利用）
+            const summaryText = notebookData && notebookData.summary
+                ? notebookData.summary
+                : '資料の内容を解析しました。（要約テキストが取得できませんでした）';
+
+            addMessage(
+                'user',
+                `資料「${file.name}」をアップロードしました。\n要約：\n${summaryText}`
+            );
+
+        } catch (error) {
+            console.error('Upload Error:', error);
+            addMessage('AI', '資料のアップロード中にエラーが発生しました。');
+        }
     });
 });
