@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GEM指示書メーカー</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="header">
+        <h1>💎 GEM指示書メーカー</h1>
+        <div class="step-nav">
+            <div class="step-item active" data-step="1">STEP 1. ヒアリング</div>
+            <div class="step-item" data-step="2">STEP 2. GEM指示書</div>
+            <div class="step-item" data-step="3">STEP 3. Gemini登録</div>
+            <div class="step-item" data-step="4">STEP 4. NotebookLM</div>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- STEP 1: ヒアリング -->
+        <section id="step1" class="step-content active">
+            <h2>STEP 1：AIヒアリング</h2>
+            <p class="description">AIの質問に答えて、業務の課題や理想の姿を深掘りしましょう。</p>
+            
+            <div class="chat-container">
+                <div id="chat-messages" class="chat-messages">
+                    <!-- Messages will be injected here -->
+                </div>
+                <!-- Typing Indiciator -->
+                <div id="typing-indicator" class="typing-indicator hidden">
+                    <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+                </div>
+                <div id="completion-message" class="completion-message hidden">
+                    ✅ ヒアリング完了！GEM指示書を生成できます
+                </div>
+                <div class="chat-input-area">
+                    <textarea id="chat-input" placeholder="メッセージを入力（Enterで送信）..." rows="2"></textarea>
+                    <button id="send-btn" class="btn btn-primary">送信</button>
+                    <button id="generate-gem-btn" class="btn btn-success hidden">GEM指示書を生成する</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- STEP 2: GEM指示書 -->
+        <section id="step2" class="step-content">
+            <h2>STEP 2：GEM指示書の生成・確認・編集</h2>
+            <div id="gem-loading" class="loading-container hidden">
+                <div class="spinner"></div>
+                <p>GEM指示書を生成しています...</p>
+            </div>
+            
+            <div id="gem-result" class="gem-result hidden">
+                <textarea id="gem-textarea" class="gem-textarea" rows="15"></textarea>
+                <div class="actions" style="text-align: right;">
+                    <button id="copy-gem-btn" class="btn btn-secondary">📋 全文コピー</button>
+                </div>
+                
+                <div class="edit-section">
+                    <p>💬 この指示書の内容に、修正したい箇所はありますか？</p>
+                    <div class="edit-buttons">
+                        <button id="want-edit-btn" class="btn btn-outline">✏️ 修正したい</button>
+                        <button id="go-step3-btn" class="btn btn-primary">このまま次へ →</button>
+                    </div>
+                    
+                    <div id="edit-input-area" class="edit-input-area hidden">
+                        <textarea id="edit-request-input" placeholder="どのように修正しますか？" rows="3"></textarea>
+                        <button id="re-generate-btn" class="btn btn-warning">🔄 修正して再生成</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- STEP 3: Geminiへの登録ガイド -->
+        <section id="step3" class="step-content">
+            <h2>STEP 3：Geminiへの登録ガイド</h2>
+            
+            <div class="guide-cards">
+                <div class="card">
+                    <div class="card-number">1</div>
+                    <div class="card-content">
+                        <h3>Geminiにアクセスする</h3>
+                        <p>https://gemini.google.com にアクセスして、Googleアカウントでログインします。</p>
+                        <small>補足：無料のGoogleアカウントで利用できます。</small>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-number">2</div>
+                    <div class="card-content">
+                        <h3>「Gemマネージャー」を開く</h3>
+                        <p>画面左サイドバーの「Gem マネージャー」をクリックし、「新しい Gem を作成」を選択します。</p>
+                        <small>補足：サイドバーが見当たらない場合は、左上のハンバーガーメニュー（≡）をクリックしてください。</small>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-number">3</div>
+                    <div class="card-content">
+                        <h3>指示書を貼り付ける</h3>
+                        <p>「Instructions（指示）」の入力欄に、STEP 2でコピーしたGEM指示書をそのまま貼り付けます。</p>
+                        <small>補足：まだコピーしていない場合は「STEP 2に戻る」ボタンでコピーできます。</small>
+                        <button id="step3-copy-btn" class="btn btn-secondary mt-2">📋 指示書をコピーする</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-number">4</div>
+                    <div class="card-content">
+                        <h3>NotebookLMを知識として接続する</h3>
+                        <p>指示欄の下にある「＋」ボタンをクリック →「NotebookLM」を選択 → STEP 4で準備するノートブックを選んで接続します。</p>
+                        <small>補足：NotebookLMのノートブックはSTEP 4で準備します。先にGEMを保存してから、あとでノートブックを接続することも可能です。</small>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-number">5</div>
+                    <div class="card-content">
+                        <h3>名前をつけて保存・動作確認</h3>
+                        <p>GEMにわかりやすい名前と説明をつけて保存します。保存後に「スタート」と入力して、期待通りの出力が返ってくるか確認しましょう！</p>
+                        <small>補足：うまく動かない場合は、制約条件に具体的な条件を追加するか、出力形式の指定を詳細にしてみてください。</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step-actions">
+                <p>📌 指示書の内容に、まだ修正が必要ですか？</p>
+                <div class="actions" style="margin-top:1rem;">
+                    <button id="back-to-step2-btn" class="btn btn-outline" style="margin-right: 1rem;">✏️ 指示書を修正する（STEP 2に戻る）</button>
+                    <button id="go-step4-btn" class="btn btn-primary">準備OK！NotebookLMの設定へ →</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- STEP 4: NotebookLMデータ蓄積ガイド -->
+        <section id="step4" class="step-content">
+            <h2>STEP 4：NotebookLMデータ蓄積ガイド</h2>
+            
+            <div id="notebook-loading" class="loading-container hidden">
+                <div class="spinner"></div>
+                <p>NotebookLMのデータ方針を分析しています...</p>
+            </div>
+
+            <div id="notebook-result" class="notebook-result hidden">
+                <div class="info-box">
+                    💡 <strong>基本方針：</strong>目的が先、収集が後。GEMの目的に必要な情報だけを厳選してストックしましょう。ゴミ情報が混ざると出力もゴミになります。
+                </div>
+
+                <h3>📓 NotebookLMのノートブック名サンプル</h3>
+                <div id="notebook-names" class="name-samples" style="margin-top:1rem;">
+                    <!-- Names will be injected -->
+                </div>
+
+                <div class="table-header-actions" style="margin-top:2rem;">
+                    <h3>ストックすべきデータ一覧</h3>
+                    <button id="copy-all-table-btn" class="btn btn-sm btn-secondary">📋 全件コピー</button>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>カテゴリ</th>
+                                <th>蓄積すべき内容</th>
+                                <th>データ形式</th>
+                                <th>具体例</th>
+                                <th>優先度</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body">
+                            <!-- Table rows will be injected -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="tips-section">
+                    <h3>🌱 このGEMを育てるコツ</h3>
+                    <div id="tips-container" class="tips-cards">
+                        <!-- Tips will be injected -->
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
